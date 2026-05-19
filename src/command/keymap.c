@@ -61,9 +61,9 @@ static void key_event_append_str(char *buf, size_t sz, const KeyEvent *ev) {
     char tmp[64];
     size_t ti = 0;
 
-    if (ev->mods & MOD_CTRL)  { memcpy(tmp + ti, "ctrl-",  5); ti += 5; }
-    if (ev->mods & MOD_META)  { memcpy(tmp + ti, "alt-",   4); ti += 4; }
-    if (ev->mods & MOD_SHIFT) { memcpy(tmp + ti, "shift-", 6); ti += 6; }
+    if (ev->mods & MOD_CTRL)  { if (ti + 5 <= sizeof(tmp)) { memcpy(tmp + ti, "ctrl-",  5); ti += 5; } }
+    if (ev->mods & MOD_META)  { if (ti + 4 <= sizeof(tmp)) { memcpy(tmp + ti, "alt-",   4); ti += 4; } }
+    if (ev->mods & MOD_SHIFT) { if (ti + 6 <= sizeof(tmp)) { memcpy(tmp + ti, "shift-", 6); ti += 6; } }
 
     if (ev->type == KEYEVENT_SPECIAL) {
         const char *name;
@@ -121,7 +121,7 @@ static void key_event_append_str(char *buf, size_t sz, const KeyEvent *ev) {
         }
     }
 
-    strncat(buf, tmp, sz - strlen(buf) - 1);
+    snprintf(buf + strlen(buf), sz - strlen(buf), "%s", tmp);
 }
 
 static bool keymap_add(Keymap *km, KeyEvent key, Binding binding) {
@@ -258,8 +258,7 @@ static void key_dispatch_inner(AppState *state, const KeyEvent *ev) {
         if (state->input.current_map != state->input.global_map) {
             // In prefix sequence: invalid continuation is an error
             char seq[256];
-            strncpy(seq, state->which_key.prefix_str, sizeof(seq) - 1);
-            seq[sizeof(seq) - 1] = '\0';
+            snprintf(seq, sizeof(seq), "%s", state->which_key.prefix_str);
             key_event_append_str(seq, sizeof(seq), ev);
             reset_key_state(state);
             char msg[270];
@@ -615,8 +614,7 @@ const char *keymap_where_is_first(AppState *state, const char *cmd_name,
     if (sexp_exceptionp(result) || !sexp_pairp(result)) return NULL;
     sexp first = sexp_car(result);
     if (!sexp_stringp(first)) return NULL;
-    strncpy(buf, sexp_string_data(first), buf_len - 1);
-    buf[buf_len - 1] = '\0';
+    snprintf(buf, buf_len, "%s", sexp_string_data(first));
     return buf;
 }
 
