@@ -18,7 +18,7 @@ float get_display_ppi(SDL_Window *window) {
     if (!display) return 0.0f;
 
     int screen = (int)SDL_GetNumberProperty(
-        props, SDL_PROP_WINDOW_X11_SCREEN_INT, DefaultScreen(display));
+        props, SDL_PROP_WINDOW_X11_SCREEN_NUMBER, DefaultScreen(display));
 
     int px_wide = DisplayWidth(display, screen);
     int mm_wide = DisplayWidthMM(display, screen);
