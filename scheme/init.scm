@@ -15,6 +15,7 @@
 (set-key! global-keymap "ctrl-e" 'eval-expression)
 (set-key! global-keymap "ctrl-shift-p" 'command-palette)
 (set-key! global-keymap "ctrl-p" 'file-picker)
+(set-key! global-keymap "ctrl-shift-h" 'search-toggle-replace)
 (set-key! global-keymap "alt-0" 'reset-global-scale)
 (set-key! global-keymap "alt-=" 'increase-global-scale)
 (set-key! global-keymap "alt--" 'decrease-global-scale)
@@ -109,10 +110,6 @@
 (set-key! pane-keymap "ctrl-right" 'pane-navigate-right)
 
 ;; Pane resize
-(set-key! pane-keymap "ctrl-shift-h"     'pane-v-split-decrease)
-(set-key! pane-keymap "ctrl-shift-j"     'pane-h-split-increase)
-(set-key! pane-keymap "ctrl-shift-k"     'pane-h-split-decrease)
-(set-key! pane-keymap "ctrl-shift-l"     'pane-v-split-increase)
 (set-key! pane-keymap "ctrl-shift-left"  'pane-v-split-decrease)
 (set-key! pane-keymap "ctrl-shift-down"  'pane-h-split-increase)
 (set-key! pane-keymap "ctrl-shift-up"    'pane-h-split-decrease)
