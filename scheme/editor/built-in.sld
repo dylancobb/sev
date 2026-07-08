@@ -28,5 +28,10 @@
     search-forward-char search-backward-char
     search-shift-forward-char search-shift-backward-char
     search-toggle-case
-    search-toggle-whole-words)
+    search-toggle-whole-words
+    search-toggle-replace
+    replace-backspace
+    replace-forward-char replace-backward-char
+    replace-shift-forward-char replace-shift-backward-char
+    search-replace-next search-replace-all)
   (include "built-in.scm"))

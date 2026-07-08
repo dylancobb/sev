@@ -342,8 +342,8 @@ void scheme_init(AppState *state) {
     state->chibi.ctx = ctx;
     state->chibi.env = env;
 
-    sexp_gc_var3(global_km, pane_km, search_km);
-    sexp_gc_preserve3(ctx, global_km, pane_km, search_km);
+    sexp_gc_var4(global_km, pane_km, search_km, replace_km);
+    sexp_gc_preserve4(ctx, global_km, pane_km, search_km, replace_km);
 
     // DON'T register custom types for now - just use built-in CPOINTER
     global_km = sexp_make_cpointer(
@@ -382,7 +382,19 @@ void scheme_init(AppState *state) {
                     sexp_intern(ctx, "search-keymap", -1),
                     search_km);
 
-    sexp_gc_release3(ctx);
+    replace_km = sexp_make_cpointer(
+        ctx,
+        SEXP_CPOINTER,
+        state->input.replace_map,
+        SEXP_FALSE,
+        0
+    );
+
+    sexp_env_define(ctx, env,
+                    sexp_intern(ctx, "replace-keymap", -1),
+                    replace_km);
+
+    sexp_gc_release4(ctx);
 
     #define SDEF(a, b, c) sexp_define_foreign(ctx, env, a, b, c)
 
@@ -580,6 +592,15 @@ void scheme_init(AppState *state) {
     SDEF("%search-bar-open?",   0, scm_search_bar_open_p);
     SDEF("%search-toggle-case!", 0, scm_search_toggle_case);
     SDEF("%search-toggle-whole-words!", 0, scm_search_toggle_whole_words);
+    SDEF("%search-toggle-replace!",       0, scm_search_toggle_replace);
+    SDEF("replace-self-insert",           0, scm_replace_self_insert);
+    SDEF("%replace-backspace!",           0, scm_replace_backspace);
+    SDEF("%replace-forward-char!",        0, scm_replace_forward_char);
+    SDEF("%replace-backward-char!",       0, scm_replace_backward_char);
+    SDEF("%replace-shift-forward-char!",  0, scm_replace_shift_forward_char);
+    SDEF("%replace-shift-backward-char!", 0, scm_replace_shift_backward_char);
+    SDEF("%search-replace-next!",         0, scm_search_replace_next);
+    SDEF("%search-replace-all!",          0, scm_search_replace_all);
 
     // Mark / selection primitives
     SDEF("%mark-set-to-point!", 1, scm_mark_set_to_point);
@@ -680,7 +701,8 @@ void scheme_init(AppState *state) {
         "%set-mouse-click-handler! %set-mouse-drag-handler! "
         "%search-open! %search-open-backward! %search-next! %search-prev! "
         "search-self-insert %search-backspace! %search-forward-char! %search-backward-char! %search-shift-forward-char! %search-shift-backward-char! %search-confirm! %search-cancel! %search-bar-open? %search-toggle-case! %search-toggle-whole-words! "
-        "global-keymap pane-keymap search-keymap eval) "
+        "%search-toggle-replace! replace-self-insert %replace-backspace! %replace-forward-char! %replace-backward-char! %replace-shift-forward-char! %replace-shift-backward-char! %search-replace-next! %search-replace-all! "
+        "global-keymap pane-keymap search-keymap replace-keymap eval) "
         "%editor-env '()))",
         -1, meta);
     if (sexp_exceptionp(result)) {

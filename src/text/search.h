@@ -26,6 +26,11 @@ typedef struct {
     bool           case_sensitive;  // when false, matching ignores case
     bool           match_whole_words; // when true, only whole-word matches are valid
     bool           backward;        // when true, ? search: initial match and n/N are reversed
+
+    struct Buffer *replace_buf;      // owns replacement text and its own cursor; persists like query_buf
+    bool           replace_open;     // replace bar UI is visible
+    size_t         replace_sel_anchor; // fixed end of the replacement text selection
+    bool           replace_sel_active; // whether a selection is active in the replacement field
 } SearchSession;
 
 // Free dynamically allocated match storage and query buffer.
@@ -42,3 +47,9 @@ size_t search_session_next_match(SearchSession *s);
 
 // Retreat active_match_index (wraps). Returns start offset of new active match.
 size_t search_session_prev_match(SearchSession *s);
+
+// Returns the index of the match that should be replaced next, given the
+// buffer's live cursor position: the match containing cursor_pos if any,
+// else the nearest match in the search direction (wraps around). Returns
+// (size_t)-1 if match_count == 0.
+size_t search_session_replace_target(const SearchSession *s, size_t cursor_pos);

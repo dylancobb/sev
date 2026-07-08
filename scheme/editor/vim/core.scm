@@ -100,6 +100,23 @@
 (register-mode-icon/full 'search-mode "icon-normal.svg"
                          'mode.search 'label.search 'cursor.search 'thin)
 
+;; Replace bar keybindings — usable from either query or replace focus
+(set-key! search-keymap  "ctrl-shift-h" 'search-toggle-replace)
+(set-key! replace-keymap "ctrl-shift-h" 'search-toggle-replace)
+
+(set-key! replace-keymap "backspace"    'replace-backspace)
+(set-key! replace-keymap "escape"       'search-cancel)
+(set-key! replace-keymap "left"         'replace-backward-char)
+(set-key! replace-keymap "right"        'replace-forward-char)
+(set-key! replace-keymap "shift-left"   'replace-shift-backward-char)
+(set-key! replace-keymap "shift-right"  'replace-shift-forward-char)
+(set-key! replace-keymap "return"       'search-replace-next)
+(set-key! replace-keymap "ctrl-return"  'search-replace-all)
+
+(define-minor-mode 'replace-mode replace-keymap #t)
+(register-mode-icon/full 'replace-mode "icon-normal.svg"
+                         'mode.search 'label.search 'cursor.search 'thin)
+
 ;; Insert mode bindings
 (set-key! insert-map "h" 'self-insert)
 (set-key! insert-map "j" 'self-insert)

@@ -29,9 +29,13 @@ bool init_input(AppState *state) {
     Keymap *search = keymap_create();
     if (!search) { free(global); free(pane); return false; }
 
+    Keymap *replace = keymap_create();
+    if (!replace) { free(global); free(pane); free(search); return false; }
+
     state->input.global_map  = global;
     state->input.pane_map    = pane;
     state->input.search_map  = search;
+    state->input.replace_map = replace;
     state->input.current_map = global;
     state->input.key_intercept_cb  = SEXP_FALSE;
     state->input.key_intercept_map = NULL;
@@ -339,6 +343,21 @@ void key_dispatch(AppState *state, const KeyEvent *ev) {
             si.type        = BINDING_COMMAND;
             si.command_sym = sexp_intern(state->chibi.ctx, "search-self-insert", -1);
             b = &si;
+        }
+        if (b && b->type == BINDING_COMMAND)
+            execute_command(state, b);
+        return;
+    }
+
+    if (state->input.current_focus == FOCUS_REPLACE) {
+        reset_key_state(state);
+        Binding *b = state->input.replace_map
+                     ? keymap_lookup(state->input.replace_map, ev) : NULL;
+        if (!b && ev->type == KEYEVENT_CHAR && ev->mods == MOD_NONE) {
+            static Binding ri;
+            ri.type        = BINDING_COMMAND;
+            ri.command_sym = sexp_intern(state->chibi.ctx, "replace-self-insert", -1);
+            b = &ri;
         }
         if (b && b->type == BINDING_COMMAND)
             execute_command(state, b);

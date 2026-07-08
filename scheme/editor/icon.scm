@@ -23,6 +23,14 @@
 (register-icon 'word-icon        "icon-word.svg" 'text.primary)
 (register-icon 'word-icon-active "icon-word.svg" 'border.active)
 
+(register-icon 'match-replace-icon        "icon-match-replace.svg" 'text.primary)
+(register-icon 'match-replace-icon-active "icon-match-replace.svg" 'border.active)
+
+(register-icon 'replace-next-icon        "icon-replace-next.svg" 'text.primary)
+(register-icon 'replace-next-icon-faded  "icon-replace-next.svg" 'text.faded)
+(register-icon 'replace-all-icon         "icon-replace-all.svg"  'text.primary)
+(register-icon 'replace-all-icon-faded   "icon-replace-all.svg"  'text.faded)
+
 (register-icon 'new-icon "icon-plus.svg" 'text.primary)
 (register-icon 'open-icon "icon-open.svg" 'text.primary)
 (register-icon 'help-icon "icon-help.svg" 'text.primary)

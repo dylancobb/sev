@@ -49,6 +49,7 @@ typedef enum {
     FOCUS_WELCOME,
     FOCUS_MINIBUFFER,
     FOCUS_SEARCH,
+    FOCUS_REPLACE,
 } FocusTarget;
 
 typedef struct {
@@ -58,6 +59,7 @@ typedef struct {
     struct Keymap *current_map;
     struct Keymap *welcome_map;             // NULL until registered from Scheme
     struct Keymap *search_map;              // keymap active when FOCUS_SEARCH
+    struct Keymap *replace_map;             // keymap active when FOCUS_REPLACE
     KeyEvent last_event;
     sexp         key_intercept_cb;         // SEXP_FALSE if inactive
     struct Keymap *key_intercept_map;      // current traversal position

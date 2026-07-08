@@ -158,6 +158,7 @@ static void HandleMajorModeClick(Clay_ElementId elementId,
 void MajorModeIndicator(AppState *state, Buffer *buf, Clay_Color text_color) {
     if (state->input.current_focus != FOCUS_PANE &&
         state->input.current_focus != FOCUS_SEARCH &&
+        state->input.current_focus != FOCUS_REPLACE &&
         !(state->input.current_focus == FOCUS_MINIBUFFER &&
           state->minibuf.prev_focus == FOCUS_PANE)) return;
     float scale = state->ui.scale_factor;
@@ -216,6 +217,7 @@ void MajorModeIndicator(AppState *state, Buffer *buf, Clay_Color text_color) {
 void SelectionIndicator(AppState *state, Buffer *buf, Clay_Color text_color) {
     if (state->input.current_focus != FOCUS_PANE &&
         state->input.current_focus != FOCUS_SEARCH &&
+        state->input.current_focus != FOCUS_REPLACE &&
         !(state->input.current_focus == FOCUS_MINIBUFFER &&
           state->minibuf.prev_focus == FOCUS_PANE)) return;
     if (buf->select_mode != SELECT_NONE) {
@@ -282,6 +284,7 @@ void SelectionIndicator(AppState *state, Buffer *buf, Clay_Color text_color) {
 void CursorPosition(AppState* state, Buffer *buf, Clay_Color text_color) {
     if (state->input.current_focus != FOCUS_PANE &&
         state->input.current_focus != FOCUS_SEARCH &&
+        state->input.current_focus != FOCUS_REPLACE &&
         !(state->input.current_focus == FOCUS_MINIBUFFER &&
           state->minibuf.prev_focus == FOCUS_PANE)) return;
     float scale = state->ui.scale_factor;

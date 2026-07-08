@@ -304,3 +304,36 @@
 (defcommand (search-toggle-whole-words)
   "search: toggle whole-word matching\nToggle whole-word matching in the search bar."
   (%search-toggle-whole-words!))
+
+;; Replace bar commands
+(defcommand (search-toggle-replace)
+  "search: toggle replace bar\nOpen or close the replacement-string bar."
+  (%search-toggle-replace!))
+
+(defcommand (replace-backspace)
+  "search: delete character from replacement field"
+  (%replace-backspace!))
+
+(defcommand (replace-forward-char)
+  "search: move cursor forward one character in replacement field"
+  (%replace-forward-char!))
+
+(defcommand (replace-backward-char)
+  "search: move cursor backward one character in replacement field"
+  (%replace-backward-char!))
+
+(defcommand (replace-shift-forward-char)
+  "search: move cursor right, extending selection, in replacement field"
+  (%replace-shift-forward-char!))
+
+(defcommand (replace-shift-backward-char)
+  "search: move cursor left, extending selection, in replacement field"
+  (%replace-shift-backward-char!))
+
+(defcommand (search-replace-next)
+  "search: replace next match\nReplace the match at or ahead of the cursor with the replacement string."
+  (%search-replace-next!))
+
+(defcommand (search-replace-all)
+  "search: replace all matches\nReplace every match in the buffer with the replacement string."
+  (%search-replace-all!))

@@ -12,6 +12,10 @@ void search_session_free(SearchSession *s) {
         buffer_delete(s->query_buf);
         s->query_buf = NULL;
     }
+    if (s->replace_buf) {
+        buffer_delete(s->replace_buf);
+        s->replace_buf = NULL;
+    }
     free(s->matches);
     s->matches   = NULL;
     s->match_cap = 0;
@@ -110,4 +114,22 @@ size_t search_session_prev_match(SearchSession *s) {
     snprintf(s->count_str, sizeof(s->count_str), "%zu/%zu",
              s->active_match_index + 1, s->match_count);
     return s->matches[s->active_match_index].start;
+}
+
+size_t search_session_replace_target(const SearchSession *s, size_t cursor_pos) {
+    if (s->match_count == 0) return (size_t)-1;
+
+    for (size_t i = 0; i < s->match_count; i++)
+        if (cursor_pos >= s->matches[i].start && cursor_pos < s->matches[i].end)
+            return i;
+
+    if (s->backward) {
+        for (size_t i = s->match_count; i-- > 0; )
+            if (s->matches[i].start <= cursor_pos) return i;
+        return s->match_count - 1; // wrap: all ahead → last match
+    } else {
+        for (size_t i = 0; i < s->match_count; i++)
+            if (s->matches[i].start >= cursor_pos) return i;
+        return 0; // wrap: all behind → first match
+    }
 }

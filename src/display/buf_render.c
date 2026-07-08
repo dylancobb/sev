@@ -781,7 +781,8 @@ static void BufRender_TextRow(BufRenderCtx *ctx, size_t i) {
         .backgroundColor = (cursor_on_line && ctx->buf->select_mode == SELECT_NONE) ? (Clay_Color){ c.r, c.g, c.b, 128 } : (Clay_Color){0}
     }) {
         if (cursor_on_line && ctx->cp->active && ctx->state->cursor_visible
-                && ctx->state->input.current_focus != FOCUS_SEARCH)
+                && ctx->state->input.current_focus != FOCUS_SEARCH
+                && ctx->state->input.current_focus != FOCUS_REPLACE)
             BufRender_CursorCell(ctx, i, cursor_offset);
         BufRender_SelectionCell(ctx, i, vl);
         BufRender_SearchCell(ctx, i, vl);

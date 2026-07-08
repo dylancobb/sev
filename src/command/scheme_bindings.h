@@ -65,6 +65,15 @@ sexp scm_search_cancel(sexp ctx, sexp self, sexp n);
 sexp scm_search_bar_open_p(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_case(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_whole_words(sexp ctx, sexp self, sexp n);
+sexp scm_search_toggle_replace(sexp ctx, sexp self, sexp n);
+sexp scm_replace_self_insert(sexp ctx, sexp self, sexp n);
+sexp scm_replace_backspace(sexp ctx, sexp self, sexp n);
+sexp scm_replace_forward_char(sexp ctx, sexp self, sexp n);
+sexp scm_replace_backward_char(sexp ctx, sexp self, sexp n);
+sexp scm_replace_shift_forward_char(sexp ctx, sexp self, sexp n);
+sexp scm_replace_shift_backward_char(sexp ctx, sexp self, sexp n);
+sexp scm_search_replace_next(sexp ctx, sexp self, sexp n);
+sexp scm_search_replace_all(sexp ctx, sexp self, sexp n);
 
 // --- display/tab.c ---
 sexp scm_tab_close(sexp ctx, sexp self, sexp n);
