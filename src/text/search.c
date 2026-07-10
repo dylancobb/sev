@@ -37,12 +37,16 @@ static bool is_word_char(uint32_t cp) {
 }
 
 void search_session_recompute(SearchSession *s, const char *text, size_t text_len,
-                               const char *query, size_t query_len) {
+                               const char *query, size_t query_len,
+                               size_t range_start, size_t range_end) {
     s->match_count = 0;
     if (query_len == 0 || text_len == 0) return;
+    if (range_start > text_len) range_start = text_len;
+    if (range_end > text_len) range_end = text_len;
+    if (range_end < range_start) range_end = range_start;
 
-    const char *p   = text;
-    const char *end = text + text_len;
+    const char *p   = text + range_start;
+    const char *end = text + range_end;
     while (p < end) {
         const char *hit = s->case_sensitive
             ? memmem(p, (size_t)(end - p), query, query_len)

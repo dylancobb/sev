@@ -417,3 +417,11 @@
 (set-key! select-map "%" 'vim-motion-%)
 (set-key! select-map "g g" 'vim-motion-gg)
 (set-key! select-map "G" 'vim-motion-G)
+
+;; Visual mode search bindings — reuses normal-mode search commands so
+;; the search bar (and n/N navigation) can be reached without leaving
+;; visual mode and clearing the selection.
+(set-key! select-map "/" 'vim-search-open)
+(set-key! select-map "?" 'vim-search-open-backward)
+(set-key! select-map "n" 'vim-search-next)
+(set-key! select-map "N" 'vim-search-prev)

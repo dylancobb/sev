@@ -592,6 +592,7 @@ void scheme_init(AppState *state) {
     SDEF("%search-bar-open?",   0, scm_search_bar_open_p);
     SDEF("%search-toggle-case!", 0, scm_search_toggle_case);
     SDEF("%search-toggle-whole-words!", 0, scm_search_toggle_whole_words);
+    SDEF("%search-toggle-match-in-selection!", 0, scm_search_toggle_match_in_selection);
     SDEF("%search-toggle-replace!",       0, scm_search_toggle_replace);
     SDEF("replace-self-insert",           0, scm_replace_self_insert);
     SDEF("%replace-backspace!",           0, scm_replace_backspace);
@@ -701,6 +702,7 @@ void scheme_init(AppState *state) {
         "%set-mouse-click-handler! %set-mouse-drag-handler! "
         "%search-open! %search-open-backward! %search-next! %search-prev! "
         "search-self-insert %search-backspace! %search-forward-char! %search-backward-char! %search-shift-forward-char! %search-shift-backward-char! %search-confirm! %search-cancel! %search-bar-open? %search-toggle-case! %search-toggle-whole-words! "
+        "%search-toggle-match-in-selection! "
         "%search-toggle-replace! replace-self-insert %replace-backspace! %replace-forward-char! %replace-backward-char! %replace-shift-forward-char! %replace-shift-backward-char! %search-replace-next! %search-replace-all! "
         "global-keymap pane-keymap search-keymap replace-keymap eval) "
         "%editor-env '()))",

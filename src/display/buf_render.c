@@ -69,6 +69,9 @@ static Clay_Sizing tab_layout_expand = {
 static ScissoredRectData sel_pool[SCISSORED_RECT_POOL_SIZE];
 static int sel_pool_idx = 0;
 
+static ScissoredRectData match_range_pool[SCISSORED_RECT_POOL_SIZE];
+static int match_range_pool_idx = 0;
+
 static TriangleRenderData tri_pool[TRIANGLE_POOL_SIZE];
 static int tri_pool_idx = 0;
 
@@ -82,6 +85,7 @@ void buf_render_reset(void) {
     sel_pool_idx  = 0;
     tri_pool_idx  = 0;
     srch_pool_idx = 0;
+    match_range_pool_idx = 0;
 }
 
 // --- Static helpers ---
@@ -508,6 +512,58 @@ static void BufRender_CursorCell(BufRenderCtx *ctx, size_t i, float cursor_offse
            cursor_font_id, ctx->font_size, 0);
 }
 
+// Renders the frozen "match in selection" range highlight, independent of
+// the live vim-selection state — it stays visible after the user leaves
+// visual mode, until the search bar is fully closed. Reuses roles.selection
+// so it visually stacks (brighter) where it overlaps the live selection.
+static void BufRender_MatchRangeCell(BufRenderCtx *ctx, size_t i, VisualLine *vl) {
+    SearchSession *s = &ctx->cp->search;
+    if (!s->active || !s->match_in_selection || !s->has_match_range) return;
+
+    size_t line_start = vl->byte_start;
+    size_t line_end   = vl->byte_end;
+    size_t rng_min     = s->match_range_start;
+    size_t rng_max     = s->match_range_end;
+    if (rng_max <= rng_min) return;
+    if (line_start >= rng_max || line_end <= rng_min) return;
+
+    size_t hl_start = rng_min > line_start ? rng_min : line_start;
+    size_t hl_end   = rng_max < line_end   ? rng_max : line_end;
+    if (hl_end <= hl_start) return;
+
+    float mr_x = 0.0f;
+    if (hl_start > line_start) {
+        mr_x = text_measure_tab_aware(&ctx->state->rendererData, ctx->font_id, ctx->font_size,
+                                      ctx->chars + line_start,
+                                      hl_start - line_start, ctx->tab_width);
+    }
+    float mr_w = text_measure_tab_aware(&ctx->state->rendererData, ctx->font_id, ctx->font_size,
+                                        ctx->chars + hl_start,
+                                        hl_end - hl_start, ctx->tab_width);
+    if (mr_w <= 0 || match_range_pool_idx >= SCISSORED_RECT_POOL_SIZE) return;
+
+    ScissoredRectData *mr = &match_range_pool[match_range_pool_idx++];
+    mr->type   = CUSTOM_TYPE_SCISSORED_RECT;
+    mr->clip_x = ctx->box.x + ctx->padding + ctx->gutter_width;
+    mr->clip_y = ctx->box.y;
+    mr->clip_w = ctx->box.width - ctx->padding - ctx->gutter_width;
+    mr->clip_h = ctx->text_height;
+    mr->color  = ui_resolve_color(ctx->state, ctx->state->ui.roles.selection);
+    CLAY(CLAY_IDI_LOCAL("MatchRange", (int32_t)i), {
+        .floating = {
+            .attachTo = CLAY_ATTACH_TO_PARENT,
+            .offset   = { .x = mr_x, .y = 0 }
+        },
+        .layout = {
+            .sizing = {
+                .width  = CLAY_SIZING_FIXED(mr_w),
+                .height = CLAY_SIZING_FIXED(ctx->line_height)
+            }
+        },
+        .custom = { .customData = mr },
+    }) {}
+}
+
 // Renders the selection highlight overlay for the current line.
 // Handles SELECT_REGULAR, SELECT_LINE, and SELECT_RECTANGLE modes.
 static void BufRender_SelectionCell(BufRenderCtx *ctx, size_t i, VisualLine *vl) {
@@ -784,6 +840,7 @@ static void BufRender_TextRow(BufRenderCtx *ctx, size_t i) {
                 && ctx->state->input.current_focus != FOCUS_SEARCH
                 && ctx->state->input.current_focus != FOCUS_REPLACE)
             BufRender_CursorCell(ctx, i, cursor_offset);
+        BufRender_MatchRangeCell(ctx, i, vl);
         BufRender_SelectionCell(ctx, i, vl);
         BufRender_SearchCell(ctx, i, vl);
         BufRender_TextCell(ctx, vl);

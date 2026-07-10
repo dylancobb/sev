@@ -305,6 +305,10 @@
   "search: toggle whole-word matching\nToggle whole-word matching in the search bar."
   (%search-toggle-whole-words!))
 
+(defcommand (search-toggle-match-in-selection)
+  "search: toggle match in selection\nRestrict search matches to the active visual selection."
+  (%search-toggle-match-in-selection!))
+
 ;; Replace bar commands
 (defcommand (search-toggle-replace)
   "search: toggle replace bar\nOpen or close the replacement-string bar."

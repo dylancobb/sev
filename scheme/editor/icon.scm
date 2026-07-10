@@ -26,6 +26,9 @@
 (register-icon 'match-replace-icon        "icon-match-replace.svg" 'text.primary)
 (register-icon 'match-replace-icon-active "icon-match-replace.svg" 'border.active)
 
+(register-icon 'match-in-selection-icon        "icon-match-in-selection.svg" 'text.primary)
+(register-icon 'match-in-selection-icon-active "icon-match-in-selection.svg" 'border.active)
+
 (register-icon 'replace-next-icon        "icon-replace-next.svg" 'text.primary)
 (register-icon 'replace-next-icon-faded  "icon-replace-next.svg" 'text.faded)
 (register-icon 'replace-all-icon         "icon-replace-all.svg"  'text.primary)

@@ -13,6 +13,7 @@
 #include "../command/mode.h"
 #include "../command/scheme_internal.h"
 #include "../text/buffer.h"
+#include "../text/buffer_type.h"
 #include "../text/change.h"
 
 extern KeyEvent last_event;  // defined in command/keymap.c
@@ -58,6 +59,15 @@ static void HandleToggleCaseSensitive(Clay_ElementId id, Clay_PointerData ptr, v
     search_recompute_current(pane);
 }
 
+static void HandleToggleMatchInSelection(Clay_ElementId id, Clay_PointerData ptr, void *ud) {
+    if (ptr.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    Pane *pane = (Pane *)ud;
+    if (!pane) return;
+    SearchSession *s = &pane->content.search;
+    s->match_in_selection = !s->match_in_selection;
+    search_recompute_current(pane);
+}
+
 static void HandleCloseSearch(Clay_ElementId id, Clay_PointerData ptr, void *ud) {
     if (ptr.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
     Pane *pane = (Pane *)ud;
@@ -66,6 +76,10 @@ static void HandleCloseSearch(Clay_ElementId id, Clay_PointerData ptr, void *ud)
     s->bar_open      = false;
     s->active        = false;
     s->match_count   = 0;
+    s->has_match_range = false;
+    s->case_sensitive     = false;
+    s->match_whole_words  = false;
+    s->match_in_selection = false;
     s->replace_open  = false;
     s->replace_sel_active = false;
     G->input.current_focus = FOCUS_PANE;
@@ -255,7 +269,7 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
 
         }
 
-        // Match-replace toggle
+        // Toggle to open/close the match replacement UI.
         bool replace_hovered = false;
         CLAY(CLAY_IDI_LOCAL("SearchReplaceToggle", index), {
             .layout = {
@@ -282,6 +296,35 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
         keymap_where_is_first(state, "search-toggle-replace", replace_binding, sizeof(replace_binding));
         TextTooltipWithBinding(state, replace_hovered, index + 1029,
                                "Toggle Replace", replace_binding[0] ? replace_binding : NULL);
+
+        // Toggle for "match in selection", which restricts the search range to
+        // the user's active selection when the search UI was opened.
+        bool match_in_selection_hovered = false;
+        CLAY(CLAY_IDI_LOCAL("SearchMatchInSelectionToggle", index), {
+            .layout = {
+                .sizing = { .width = CLAY_SIZING_FIXED(15 * sf), .height = CLAY_SIZING_FIXED(15 * sf) },
+                .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER }
+            },
+            .cornerRadius    = CLAY_CORNER_RADIUS(4 * sf),
+            .backgroundColor = Clay_Hovered()
+                ? ui_resolve_color(state, state->ui.roles.tab_close)
+                : (Clay_Color){0}
+        }) {
+            SDL_Texture *match_in_selection_tex = icon_get(
+                s->match_in_selection ? "match-in-selection-icon-active" : "match-in-selection-icon", state, 12, 12);
+            CLAY_AUTO_ID({
+                .layout = { .sizing = { .width = 12.0f * sf, .height = 12.0f * sf } },
+                .image  = { .imageData = match_in_selection_tex },
+            }) {}
+            Clay_OnHover(HandleToggleMatchInSelection, pane);
+            match_in_selection_hovered = Clay_Hovered();
+            if (match_in_selection_hovered)
+                state->input.desired_cursor = SDL_SYSTEM_CURSOR_POINTER;
+        }
+        char match_in_selection_binding[64] = {0};
+        keymap_where_is_first(state, "search-toggle-match-in-selection", match_in_selection_binding, sizeof(match_in_selection_binding));
+        TextTooltipWithBinding(state, match_in_selection_hovered, index + 1032,
+                               "Match In Selection", match_in_selection_binding[0] ? match_in_selection_binding : NULL);
 
         // Vertical divider
         CLAY_AUTO_ID({
@@ -649,7 +692,16 @@ static void search_recompute_current(Pane *pane) {
     const char *query = buffer_text_cached(s->query_buf);
     size_t query_len = query ? strlen(query) : 0;
     const char *text = buffer_text_cached(buf);
-    search_session_recompute(s, text, strlen(text), query, query_len);
+    size_t text_len = strlen(text);
+
+    size_t range_start = 0, range_end = text_len;
+    if (s->match_in_selection && s->has_match_range) {
+        range_start = s->match_range_start;
+        range_end   = s->match_range_end;
+        if (range_start > text_len) range_start = text_len;
+        if (range_end   > text_len) range_end   = text_len;
+    }
+    search_session_recompute(s, text, text_len, query, query_len, range_start, range_end);
 }
 
 static void search_jump_to_active(Pane *pane) {
@@ -685,6 +737,10 @@ void search_handle_key(AppState *state, const KeyEvent *ev) {
             s->active      = false;
             s->match_count = 0;
             s->sel_active  = false;
+            s->has_match_range = false;
+            s->case_sensitive     = false;
+            s->match_whole_words  = false;
+            s->match_in_selection = false;
             buffer_clear(s->query_buf);
             s->text_scroll = 0.0f;
             state->input.current_focus = FOCUS_PANE;
@@ -720,6 +776,18 @@ static void search_open_impl(Pane *pane, bool backward) {
     s->active   = true;
     s->bar_open = true;
     s->backward = backward;
+
+    // Snapshot the active visual selection (if any) as the frozen restrict
+    // range for "match in selection". Only set, never clear here: if the
+    // user re-opens search with no live selection (e.g. after leaving
+    // visual mode but before fully closing the search bar), the range from
+    // the original selection should keep restricting matches.
+    if (buf && buf->select_mode != SELECT_NONE) {
+        size_t a = buf->select_start.pos, b = point_get(buf).pos;
+        s->match_range_start = a < b ? a : b;
+        s->match_range_end   = a > b ? a : b;
+        s->has_match_range   = true;
+    }
 
     const char *q = buffer_text_cached(s->query_buf);
     size_t qlen = q ? strlen(q) : 0;
@@ -854,6 +922,10 @@ sexp scm_search_cancel(sexp ctx, sexp self, sexp n) {
     s->active        = false;
     s->match_count   = 0;
     s->sel_active    = false;
+    s->has_match_range = false;
+    s->case_sensitive     = false;
+    s->match_whole_words  = false;
+    s->match_in_selection = false;
     s->replace_open  = false;
     s->replace_sel_active = false;
     G->input.current_focus = FOCUS_PANE;
@@ -902,6 +974,15 @@ sexp scm_search_toggle_whole_words(sexp ctx, sexp self, sexp n) {
     if (!pane) return SEXP_VOID;
     SearchSession *s = &pane->content.search;
     s->match_whole_words = !s->match_whole_words;
+    search_recompute_current(pane);
+    return SEXP_VOID;
+}
+
+sexp scm_search_toggle_match_in_selection(sexp ctx, sexp self, sexp n) {
+    Pane *pane = pane_get_active();
+    if (!pane) return SEXP_VOID;
+    SearchSession *s = &pane->content.search;
+    s->match_in_selection = !s->match_in_selection;
     search_recompute_current(pane);
     return SEXP_VOID;
 }

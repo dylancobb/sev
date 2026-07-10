@@ -29,6 +29,7 @@
     search-shift-forward-char search-shift-backward-char
     search-toggle-case
     search-toggle-whole-words
+    search-toggle-match-in-selection
     search-toggle-replace
     replace-backspace
     replace-forward-char replace-backward-char

@@ -26,6 +26,10 @@ typedef struct {
     bool           case_sensitive;  // when false, matching ignores case
     bool           match_whole_words; // when true, only whole-word matches are valid
     bool           backward;        // when true, ? search: initial match and n/N are reversed
+    bool           match_in_selection; // when true, matches are restricted to the frozen search range
+    size_t         match_range_start;  // frozen restrict-range start, captured when search was opened
+    size_t         match_range_end;    // frozen restrict-range end
+    bool           has_match_range;    // whether match_range_start/end were captured this session
 
     struct Buffer *replace_buf;      // owns replacement text and its own cursor; persists like query_buf
     bool           replace_open;     // replace bar UI is visible
@@ -36,11 +40,13 @@ typedef struct {
 // Free dynamically allocated match storage and query buffer.
 void search_session_free(SearchSession *s);
 
-// Recompute all matches from buffer text. Updates active_match_index to
-// the first match at or after s->point (forward) or the last match at or
-// before s->point (backward). Call whenever query or text changes.
+// Recompute all matches from buffer text within [range_start, range_end).
+// Updates active_match_index to the first match at or after s->point
+// (forward) or the last match at or before s->point (backward). Call
+// whenever query, text, or the scan range changes.
 void search_session_recompute(SearchSession *s, const char *text, size_t text_len,
-                               const char *query, size_t query_len);
+                               const char *query, size_t query_len,
+                               size_t range_start, size_t range_end);
 
 // Advance active_match_index (wraps). Returns start offset of new active match.
 size_t search_session_next_match(SearchSession *s);
