@@ -1,5 +1,6 @@
 # scheme/ Subsystem
 
+
 ## Purpose
 
 Scheme scripting layer defining all user-facing commands, keybindings, modes, and themes. C provides ~60 primitive operations; Scheme composes them into the full editing experience. The Vim modal editing system lives entirely here.

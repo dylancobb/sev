@@ -141,7 +141,7 @@
     (diff.added        . green)
     (diff.modified     . yellow)
     (diff.deleted      . red)
-    (search.no-match   . red)
+    (search.error      . red)
     (selection         . selection-bg)
     (selection.hover   . (alpha selection-bg 0.2))
     (message.hover     . (alpha fg-0 0.5))

@@ -89,6 +89,20 @@ target_include_directories(app PRIVATE
 )
 
 # ------------------------------------------------------------
+# PCRE2 (vendored, always static)
+# ------------------------------------------------------------
+set(PCRE2_BUILD_PCRE2_8   ON  CACHE BOOL "" FORCE)
+set(PCRE2_BUILD_PCRE2_16  OFF CACHE BOOL "" FORCE)
+set(PCRE2_BUILD_PCRE2_32  OFF CACHE BOOL "" FORCE)
+set(PCRE2_SUPPORT_UNICODE ON  CACHE BOOL "" FORCE)
+# JIT needs runtime codegen, which WASM forbids; the interpreter is plenty
+# fast for interactive search, so keep desktop and web behavior identical.
+set(PCRE2_SUPPORT_JIT     OFF CACHE BOOL "" FORCE)
+set(PCRE2_BUILD_TESTS     OFF CACHE BOOL "" FORCE)
+set(PCRE2_BUILD_PCRE2GREP OFF CACHE BOOL "" FORCE)
+add_subdirectory(vendored/pcre2 EXCLUDE_FROM_ALL)
+
+# ------------------------------------------------------------
 # Platform-specific configuration
 # ------------------------------------------------------------
 if(EMSCRIPTEN)
@@ -227,6 +241,7 @@ if(EMSCRIPTEN)
         tree-sitter
         tree-sitter-scheme
         tree-sitter-json
+        pcre2-8-static
     )
 
 else()
@@ -319,6 +334,7 @@ else()
             tree-sitter
             tree-sitter-scheme
             tree-sitter-json
+            pcre2-8-static
         )
 
         # Copy vendored chibi-scheme stdlib next to binary so it can find modules
@@ -332,7 +348,7 @@ else()
         find_package(SDL3_image REQUIRED)
         find_package(SDL3_ttf REQUIRED)
 
-        target_link_libraries(app PUBLIC SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf chibi-scheme tree-sitter tree-sitter-scheme tree-sitter-json m)
+        target_link_libraries(app PUBLIC SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf chibi-scheme tree-sitter tree-sitter-scheme tree-sitter-json pcre2-8-static m)
     endif()
 
     # X11 physical PPI detection (Linux/non-Apple desktop, optional)

@@ -301,6 +301,11 @@
   "search: toggle case sensitivity\nToggle case-sensitive matching in the search bar."
   (%search-toggle-case!))
 
+(defcommand (search-toggle-regex)
+  "search: toggle regular expressions
+Toggle regex matching in the search bar."
+  (%search-toggle-regex!))
+
 (defcommand (search-toggle-whole-words)
   "search: toggle whole-word matching\nToggle whole-word matching in the search bar."
   (%search-toggle-whole-words!))

@@ -592,6 +592,7 @@ void scheme_init(AppState *state) {
     SDEF("%search-bar-open?",   0, scm_search_bar_open_p);
     SDEF("%search-toggle-case!", 0, scm_search_toggle_case);
     SDEF("%search-toggle-whole-words!", 0, scm_search_toggle_whole_words);
+    SDEF("%search-toggle-regex!", 0, scm_search_toggle_regex);
     SDEF("%search-toggle-match-in-selection!", 0, scm_search_toggle_match_in_selection);
     SDEF("%search-toggle-replace!",       0, scm_search_toggle_replace);
     SDEF("replace-self-insert",           0, scm_replace_self_insert);
@@ -701,7 +702,7 @@ void scheme_init(AppState *state) {
         "jump-to-matching-bracket "
         "%set-mouse-click-handler! %set-mouse-drag-handler! "
         "%search-open! %search-open-backward! %search-next! %search-prev! "
-        "search-self-insert %search-backspace! %search-forward-char! %search-backward-char! %search-shift-forward-char! %search-shift-backward-char! %search-confirm! %search-cancel! %search-bar-open? %search-toggle-case! %search-toggle-whole-words! "
+        "search-self-insert %search-backspace! %search-forward-char! %search-backward-char! %search-shift-forward-char! %search-shift-backward-char! %search-confirm! %search-cancel! %search-bar-open? %search-toggle-case! %search-toggle-whole-words! %search-toggle-regex! "
         "%search-toggle-match-in-selection! "
         "%search-toggle-replace! replace-self-insert %replace-backspace! %replace-forward-char! %replace-backward-char! %replace-shift-forward-char! %replace-shift-backward-char! %search-replace-next! %search-replace-all! "
         "global-keymap pane-keymap search-keymap replace-keymap eval) "
@@ -785,7 +786,7 @@ void scheme_init(AppState *state) {
     INTERN_ROLE(hl_bracket_match,    "hl.bracket.match");
     INTERN_ROLE(hl_search,           "hl.search");
     INTERN_ROLE(hl_search_active,    "hl.search.active");
-    INTERN_ROLE(search_no_match,     "search.no-match");
+    INTERN_ROLE(search_error,        "search.error");
 
     #undef INTERN_ROLE
 

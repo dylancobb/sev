@@ -25,6 +25,8 @@ typedef struct {
     bool           sel_active;    // whether a selection is active
     bool           case_sensitive;  // when false, matching ignores case
     bool           match_whole_words; // when true, only whole-word matches are valid
+    bool           use_regex;      // when true, query is a PCRE2 pattern; default on at open
+    char           regex_error[128]; // pattern compile error message; empty = pattern OK
     bool           backward;        // when true, ? search: initial match and n/N are reversed
     bool           match_in_selection; // when true, matches are restricted to the frozen search range
     size_t         match_range_start;  // frozen restrict-range start, captured when search was opened
@@ -53,6 +55,14 @@ size_t search_session_next_match(SearchSession *s);
 
 // Retreat active_match_index (wraps). Returns start offset of new active match.
 size_t search_session_prev_match(SearchSession *s);
+
+// Expand capture-group references ($1, ${name}) in repl_template against the
+// regex match at m. Returns a malloc'd string the caller must free, or NULL
+// on any error (caller should fall back to the literal replacement text).
+char *search_regex_expand_replacement(const char *text, size_t text_len,
+                                      SearchMatch m, const char *query,
+                                      bool case_sensitive,
+                                      const char *repl_template);
 
 // Returns the index of the match that should be replaced next, given the
 // buffer's live cursor position: the match containing cursor_pos if any,

@@ -96,6 +96,7 @@
 (set-key! search-keymap "ctrl-alt-c"  'search-toggle-case)
 (set-key! search-keymap "ctrl-alt-w"  'search-toggle-whole-words)
 (set-key! search-keymap "ctrl-alt-l"  'search-toggle-match-in-selection)
+(set-key! search-keymap "ctrl-alt-x"  'search-toggle-regex)
 
 (define-minor-mode 'search-mode search-keymap #t)
 (register-mode-icon/full 'search-mode "icon-normal.svg"

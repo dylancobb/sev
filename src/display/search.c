@@ -1,5 +1,6 @@
 #include "search.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "cursor.h"
@@ -15,6 +16,7 @@
 #include "../text/buffer.h"
 #include "../text/buffer_type.h"
 #include "../text/change.h"
+#include "../text/search.h"
 
 extern KeyEvent last_event;  // defined in command/keymap.c
 
@@ -59,6 +61,15 @@ static void HandleToggleCaseSensitive(Clay_ElementId id, Clay_PointerData ptr, v
     search_recompute_current(pane);
 }
 
+static void HandleToggleUseRegex(Clay_ElementId id, Clay_PointerData ptr, void *ud) {
+    if (ptr.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    Pane *pane = (Pane *)ud;
+    if (!pane) return;
+    SearchSession *s = &pane->content.search;
+    s->use_regex = !s->use_regex;
+    search_recompute_current(pane);
+}
+
 static void HandleToggleMatchInSelection(Clay_ElementId id, Clay_PointerData ptr, void *ud) {
     if (ptr.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
     Pane *pane = (Pane *)ud;
@@ -80,6 +91,8 @@ static void HandleCloseSearch(Clay_ElementId id, Clay_PointerData ptr, void *ud)
     s->case_sensitive     = false;
     s->match_whole_words  = false;
     s->match_in_selection = false;
+    s->use_regex          = true; // regex is the default; re-arm for next open
+    s->regex_error[0]     = '\0';
     s->replace_open  = false;
     s->replace_sel_active = false;
     G->input.current_focus = FOCUS_PANE;
@@ -172,7 +185,9 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
                         .childGap = 4 * sf
                     },
                     .border = {
-                        .color = ui_resolve_color(state, state->ui.roles.border_inactive),
+                        .color = s->use_regex && s->regex_error[0]
+                            ? ui_resolve_color(state, state->ui.roles.search_error)
+                            : ui_resolve_color(state, state->ui.roles.border_inactive),
                         .width = CLAY_BORDER_OUTSIDE(2)
                     },
                     .cornerRadius = CLAY_CORNER_RADIUS(5*sf)
@@ -199,7 +214,7 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
                 .textColor = !qstr.length
                 ? ui_resolve_color(state, state->ui.roles.text_faded)
                 : (s->match_count == 0
-                    ? ui_resolve_color(state, state->ui.roles.search_no_match)
+                    ? ui_resolve_color(state, state->ui.roles.search_error)
                     : ui_resolve_color(state, state->ui.roles.text_primary)),
             }));
             if (state->input.current_focus == FOCUS_SEARCH && state->cursor_visible)
@@ -266,6 +281,34 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
             keymap_where_is_first(state, "search-toggle-whole-words", word_binding, sizeof(word_binding));
             TextTooltipWithBinding(state, word_hovered, index + 1028,
                                    "Match Whole Words", word_binding[0] ? word_binding : NULL);
+
+            // Regular expressions toggle
+            bool regex_hovered = false;
+            CLAY(CLAY_IDI_LOCAL("SearchRegexToggle", index), {
+                .layout = {
+                    .sizing = { .width = CLAY_SIZING_FIXED(15 * sf), .height = CLAY_SIZING_FIXED(15 * sf) },
+                    .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER }
+                },
+                .cornerRadius    = CLAY_CORNER_RADIUS(4 * sf),
+                .backgroundColor = Clay_Hovered()
+                    ? ui_resolve_color(state, state->ui.roles.tab_close)
+                    : (Clay_Color){0}
+            }) {
+                SDL_Texture *regex_tex = icon_get(
+                    s->use_regex ? "regex-icon-active" : "regex-icon", state, 12, 12);
+                CLAY_AUTO_ID({
+                    .layout = { .sizing = { .width = 12.0f * sf, .height = 12.0f * sf } },
+                    .image  = { .imageData = regex_tex },
+                }) {}
+                Clay_OnHover(HandleToggleUseRegex, pane);
+                regex_hovered = Clay_Hovered();
+                if (regex_hovered)
+                    state->input.desired_cursor = SDL_SYSTEM_CURSOR_POINTER;
+            }
+            char regex_binding[64] = {0};
+            keymap_where_is_first(state, "search-toggle-regex", regex_binding, sizeof(regex_binding));
+            TextTooltipWithBinding(state, regex_hovered, index + 1033,
+                                   "Use Regular Expressions", regex_binding[0] ? regex_binding : NULL);
 
         }
 
@@ -439,6 +482,33 @@ static void SearchBarRow(AppState *state, Pane *pane, int32_t index) {
     }
 
     buffer_set_current(saved);
+}
+
+// Shown beneath the search row while the regex pattern fails to compile.
+// regex_error is stable per-pane memory in the SearchSession, like count_str.
+static void SearchErrorRow(AppState *state, Pane *pane, int32_t index) {
+    SearchSession *s = &pane->content.search;
+    float sf = state->ui.scale_factor;
+
+    CLAY(CLAY_IDI_LOCAL("SearchErrorRow", index), {
+        .layout = {
+            .sizing = { .width = CLAY_SIZING_GROW(0) },
+            .layoutDirection = CLAY_LEFT_TO_RIGHT,
+            .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
+            .padding = { .left = 8 * sf, .right = 8 * sf },
+        },
+    }) {
+        Clay_String estr = {
+            .chars               = s->regex_error,
+            .length              = (int32_t)strlen(s->regex_error),
+            .isStaticallyAllocated = true,
+        };
+        CLAY_TEXT(estr, CLAY_TEXT_CONFIG({
+            .fontId    = FONT_BUF_NORMAL,
+            .fontSize  = (uint16_t)(10 * sf),
+            .textColor = ui_resolve_color(state, state->ui.roles.search_error),
+        }));
+    }
 }
 
 static void ReplaceBarRow(AppState *state, Pane *pane, int32_t index) {
@@ -634,6 +704,8 @@ void SearchBar(AppState *state, Pane *pane, int32_t index) {
         },
     }) {
         SearchBarRow(state, pane, index);
+        if (s->use_regex && s->regex_error[0])
+            SearchErrorRow(state, pane, index);
         if (s->replace_open && s->replace_buf)
             ReplaceBarRow(state, pane, index);
     }
@@ -741,6 +813,8 @@ void search_handle_key(AppState *state, const KeyEvent *ev) {
             s->case_sensitive     = false;
             s->match_whole_words  = false;
             s->match_in_selection = false;
+            s->use_regex          = true; // regex is the default; re-arm for next open
+            s->regex_error[0]     = '\0';
             buffer_clear(s->query_buf);
             s->text_scroll = 0.0f;
             state->input.current_focus = FOCUS_PANE;
@@ -769,6 +843,7 @@ static void search_open_impl(Pane *pane, bool backward) {
         if (vim) buffer_disable_minor_mode(s->query_buf, vim);
         Mode *sm = mode_lookup("search-mode", MODE_MINOR);
         if (sm) buffer_enable_minor_mode(s->query_buf, sm);
+        s->use_regex = true; // regex matching is the default for a fresh session
     }
 
     Buffer *buf = buffer_get_current();
@@ -926,6 +1001,8 @@ sexp scm_search_cancel(sexp ctx, sexp self, sexp n) {
     s->case_sensitive     = false;
     s->match_whole_words  = false;
     s->match_in_selection = false;
+    s->use_regex          = true; // regex is the default; re-arm for next open
+    s->regex_error[0]     = '\0';
     s->replace_open  = false;
     s->replace_sel_active = false;
     G->input.current_focus = FOCUS_PANE;
@@ -974,6 +1051,15 @@ sexp scm_search_toggle_whole_words(sexp ctx, sexp self, sexp n) {
     if (!pane) return SEXP_VOID;
     SearchSession *s = &pane->content.search;
     s->match_whole_words = !s->match_whole_words;
+    search_recompute_current(pane);
+    return SEXP_VOID;
+}
+
+sexp scm_search_toggle_regex(sexp ctx, sexp self, sexp n) {
+    Pane *pane = pane_get_active();
+    if (!pane) return SEXP_VOID;
+    SearchSession *s = &pane->content.search;
+    s->use_regex = !s->use_regex;
     search_recompute_current(pane);
     return SEXP_VOID;
 }
@@ -1125,9 +1211,21 @@ sexp scm_search_replace_next(sexp ctx, sexp self, sexp n) {
     const char *repl = buffer_text_cached(s->replace_buf);
     if (!repl) repl = "";
 
+    char *expanded = NULL;
+    if (s->use_regex) {
+        const char *text  = buffer_text_cached(buf);
+        const char *query = buffer_text_cached(s->query_buf);
+        if (text && query)
+            expanded = search_regex_expand_replacement(text, strlen(text),
+                                                       s->matches[idx], query,
+                                                       s->case_sensitive, repl);
+    }
+
     change_begin(buf);
-    search_replace_match(buf, s->matches[idx], repl);
+    // Expansion failure (e.g. bad template) falls back to the literal text.
+    search_replace_match(buf, s->matches[idx], expanded ? expanded : repl);
     change_end(buf);
+    free(expanded);
 
     s->point = point_get(buf).pos;
     search_recompute_current(pane);
@@ -1146,14 +1244,38 @@ sexp scm_search_replace_all(sexp ctx, sexp self, sexp n) {
     const char *repl = buffer_text_cached(s->replace_buf);
     if (!repl) repl = "";
 
+    // Expand capture-group references against the pre-edit text before any
+    // mutation; a failed expansion falls back to the literal text.
+    char **expanded = NULL;
+    if (s->use_regex) {
+        const char *text  = buffer_text_cached(buf);
+        const char *query = buffer_text_cached(s->query_buf);
+        if (text && query) {
+            expanded = calloc(s->match_count, sizeof(char *));
+            if (expanded) {
+                size_t text_len = strlen(text);
+                for (size_t i = 0; i < s->match_count; i++)
+                    expanded[i] = search_regex_expand_replacement(
+                        text, text_len, s->matches[i], query,
+                        s->case_sensitive, repl);
+            }
+        }
+    }
+
     change_begin(buf);
     // Back-to-front: replacement length may differ from match length, so
     // earlier (lower-offset) matches must be processed after later ones to
     // keep their stored offsets valid without a recompute mid-loop.
     for (size_t i = s->match_count; i-- > 0; ) {
-        search_replace_match(buf, s->matches[i], repl);
+        const char *r = (expanded && expanded[i]) ? expanded[i] : repl;
+        search_replace_match(buf, s->matches[i], r);
     }
     change_end(buf);
+
+    if (expanded) {
+        for (size_t i = 0; i < s->match_count; i++) free(expanded[i]);
+        free(expanded);
+    }
 
     s->point = point_get(buf).pos;
     search_recompute_current(pane);

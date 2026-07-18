@@ -65,6 +65,7 @@ sexp scm_search_cancel(sexp ctx, sexp self, sexp n);
 sexp scm_search_bar_open_p(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_case(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_whole_words(sexp ctx, sexp self, sexp n);
+sexp scm_search_toggle_regex(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_match_in_selection(sexp ctx, sexp self, sexp n);
 sexp scm_search_toggle_replace(sexp ctx, sexp self, sexp n);
 sexp scm_replace_self_insert(sexp ctx, sexp self, sexp n);

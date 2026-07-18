@@ -23,6 +23,9 @@
 (register-icon 'word-icon        "icon-word.svg" 'text.primary)
 (register-icon 'word-icon-active "icon-word.svg" 'border.active)
 
+(register-icon 'regex-icon        "icon-regex.svg" 'text.primary)
+(register-icon 'regex-icon-active "icon-regex.svg" 'border.active)
+
 (register-icon 'match-replace-icon        "icon-match-replace.svg" 'text.primary)
 (register-icon 'match-replace-icon-active "icon-match-replace.svg" 'border.active)
 
