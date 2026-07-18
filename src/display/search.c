@@ -495,7 +495,11 @@ static void SearchErrorRow(AppState *state, Pane *pane, int32_t index) {
             .sizing = { .width = CLAY_SIZING_GROW(0) },
             .layoutDirection = CLAY_LEFT_TO_RIGHT,
             .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
-            .padding = { .left = 8 * sf, .right = 8 * sf },
+            .padding = {
+                .left  = (uint16_t)(8 * sf),
+                .right = (uint16_t)(8 * sf),
+                .top   = (uint16_t)(4 * sf),
+            },
         },
     }) {
         Clay_String estr = {
@@ -504,7 +508,7 @@ static void SearchErrorRow(AppState *state, Pane *pane, int32_t index) {
             .isStaticallyAllocated = true,
         };
         CLAY_TEXT(estr, CLAY_TEXT_CONFIG({
-            .fontId    = FONT_BUF_NORMAL,
+            .fontId    = FONT_UI_NORMAL,
             .fontSize  = (uint16_t)(10 * sf),
             .textColor = ui_resolve_color(state, state->ui.roles.search_error),
         }));
@@ -548,12 +552,16 @@ static void ReplaceBarRow(AppState *state, Pane *pane, int32_t index) {
         if (sel_w == 0.0f) has_sel = false;
     }
 
+    // Tighter gap when the regex error row sits directly above.
+    bool error_above = s->use_regex && s->regex_error[0];
+
     CLAY(CLAY_IDI_LOCAL("ReplaceBarRow", index), {
         .layout = {
             .sizing = { .width = CLAY_SIZING_GROW(0) },
             .layoutDirection = CLAY_LEFT_TO_RIGHT,
             .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
             .childGap = (uint16_t)(6 * sf),
+            .padding = { .top = (uint16_t)((error_above ? 4 : 8) * sf) },
         },
     }) {
         Clay_String rstr = {
@@ -684,7 +692,11 @@ void SearchBar(AppState *state, Pane *pane, int32_t index) {
     if (!s->bar_open || !s->query_buf) return;
 
     float sf = state->ui.scale_factor;
+    bool error_visible   = s->use_regex && s->regex_error[0];
+    bool replace_visible = s->replace_open && s->replace_buf;
 
+    // Rows supply their own top padding instead of a uniform childGap so the
+    // error row can sit tighter (4 * sf) than the normal row spacing (8 * sf).
     CLAY(CLAY_IDI_LOCAL("SearchBar", index), {
         .layout = {
             .sizing = { .width = CLAY_SIZING_GROW(0) },
@@ -693,9 +705,8 @@ void SearchBar(AppState *state, Pane *pane, int32_t index) {
                 .left   = (uint16_t)(8 * sf),
                 .right  = (uint16_t)(8 * sf),
                 .top    = (uint16_t)(8 * sf),
-                .bottom = (uint16_t)(8 * sf),
+                .bottom = (uint16_t)((error_visible && !replace_visible ? 4 : 8) * sf),
             },
-            .childGap = (uint16_t)(8 * sf),
         },
         .backgroundColor = ui_resolve_color(state, state->ui.roles.pane_bg),
         .border = {
@@ -704,9 +715,9 @@ void SearchBar(AppState *state, Pane *pane, int32_t index) {
         },
     }) {
         SearchBarRow(state, pane, index);
-        if (s->use_regex && s->regex_error[0])
+        if (error_visible)
             SearchErrorRow(state, pane, index);
-        if (s->replace_open && s->replace_buf)
+        if (replace_visible)
             ReplaceBarRow(state, pane, index);
     }
 }
