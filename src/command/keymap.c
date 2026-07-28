@@ -6,6 +6,7 @@
 
 #include "keymap.h"
 #include "message.h"
+#include "minibuf.h"
 #include "mode.h"
 #include "scheme_internal.h"
 #include "../text/buffer.h"
@@ -369,8 +370,12 @@ void key_dispatch(AppState *state, const KeyEvent *ev) {
         buffer_set_current(state->minibuf.buf);
         reset_key_state(state);       // clear any editor prefix state
         key_dispatch_inner(state, ev);
-        if (state->minibuf.active)    // submit/cancel already restored if false
+        if (state->minibuf.active) {  // submit/cancel already restored if false
+            // Editing the text re-filters the item list, which can change what
+            // is selected; preview it, as select-next/prev do for arrow keys.
+            minibuf_refresh_after_edit(state);
             buffer_set_current(saved);
+        }
         return;
     }
 

@@ -688,6 +688,32 @@ sexp scm_minibuffer_activate_themes(sexp ctx, sexp self, sexp n) {
     return ret;
 }
 
+// Re-filter the provider list against the current minibuffer text and preview
+// whatever ends up selected. Called after a key edits the minibuffer, so that
+// typing previews the same way arrow keys do. The filter runs again during
+// layout; doing it here too is what makes items[] current before previewing.
+void minibuf_refresh_after_edit(AppState *state) {
+    if (!state->minibuf.active || !state->minibuf.provider) return;
+
+    // Symbol selected before re-filtering; skip the preview if typing narrowed
+    // the list without landing on a different item.
+    char prev_sym[MINIBUF_LABEL_MAX] = "";
+    if (state->minibuf.item_count > 0 && state->minibuf.selected >= 0
+        && state->minibuf.selected < state->minibuf.item_count)
+        strncpy(prev_sym, state->minibuf.items[state->minibuf.selected].sym_name,
+                MINIBUF_LABEL_MAX - 1);
+
+    char *raw = buffer_text(state->minibuf.buf);
+    state->minibuf.provider(state, raw ? raw : "");
+    free(raw);
+
+    if (!state->minibuf.preview_action || state->minibuf.item_count == 0) return;
+    const char *sym_name = state->minibuf.items[state->minibuf.selected].sym_name;
+    if (strcmp(sym_name, prev_sym) == 0) return;
+    state->minibuf.preview_action(state->chibi.ctx,
+                                  sexp_intern(state->chibi.ctx, sym_name, -1));
+}
+
 sexp scm_minibuffer_select_next(sexp ctx, sexp self, sexp n) {
     if (!G->minibuf.active || G->minibuf.item_count == 0) return SEXP_VOID;
     if (G->minibuf.selected < G->minibuf.item_count - 1) {
