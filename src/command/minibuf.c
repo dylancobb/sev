@@ -35,6 +35,30 @@ static void scroll_to_visible(AppState *state) {
         state->minibuf.item_scroll = sel - MINIBUF_VISIBLE_ITEMS + 1;
 }
 
+// ---- Preview ----------------------------------------------------------------
+
+// Preview sym_name, unless it is already what's previewed. Hover, arrow keys,
+// typing and submit all funnel through here: previews are expensive (a theme
+// preview rebuilds the whole palette) and mouse motion fires far more often
+// than the item under the cursor actually changes.
+static void preview_sym(AppState *state, const char *sym_name) {
+    if (!state->minibuf.preview_action) return;
+    if (strcmp(sym_name, state->minibuf.previewed_sym) == 0) return;
+    strncpy(state->minibuf.previewed_sym, sym_name, MINIBUF_LABEL_MAX - 1);
+    state->minibuf.previewed_sym[MINIBUF_LABEL_MAX - 1] = '\0';
+    sexp ctx = state->chibi.ctx;
+    state->minibuf.preview_action(ctx, sexp_intern(ctx, sym_name, -1));
+}
+
+// Preview the keyboard selection: the item up/down and typing move between,
+// which hover deliberately leaves alone.
+static void preview_selected(AppState *state) {
+    if (state->minibuf.item_count == 0) return;
+    int sel = state->minibuf.selected;
+    if (sel < 0 || sel >= state->minibuf.item_count) return;
+    preview_sym(state, state->minibuf.items[sel].sym_name);
+}
+
 // ---- Shared sort comparator -------------------------------------------------
 
 static int item_label_cmp(const void *a, const void *b) {
@@ -317,6 +341,7 @@ bool minibuf_init(AppState *state) {
     state->minibuf.saved_sym      = SEXP_FALSE;
     state->minibuf.all_item_count = 0;
     state->minibuf.item_scroll    = 0;
+    state->minibuf.previewed_sym[0] = '\0';
 
     Buffer *buf = buffer_create("*minibuffer*");
     if (!buf) return false;
@@ -422,6 +447,10 @@ sexp scm_minibuffer_submit(sexp ctx, sexp self, sexp n) {
         if (sel < 0) sel = 0;
         if (sel >= G->minibuf.item_count) sel = G->minibuf.item_count - 1;
 
+        // A click selects and submits in one go, so the item may never have
+        // been previewed; make sure what we accept is what got applied.
+        preview_sym(G, G->minibuf.items[sel].sym_name);
+
         sexp sym = sexp_intern(ctx, G->minibuf.items[sel].sym_name, -1);
 
         void (*action)(sexp, sexp) = G->minibuf.submit_action;
@@ -431,6 +460,7 @@ sexp scm_minibuffer_submit(sexp ctx, sexp self, sexp n) {
         G->minibuf.item_count     = 0;
         G->minibuf.selected       = 0;
         G->minibuf.item_scroll    = 0;
+        G->minibuf.previewed_sym[0] = '\0';
         if (G->minibuf.saved_sym != SEXP_FALSE) {
             sexp_release_object(ctx, G->minibuf.saved_sym);
             G->minibuf.saved_sym = SEXP_FALSE;
@@ -532,6 +562,7 @@ sexp scm_minibuffer_cancel(sexp ctx, sexp self, sexp n) {
         G->minibuf.item_count     = 0;
         G->minibuf.selected       = 0;
         G->minibuf.item_scroll    = 0;
+        G->minibuf.previewed_sym[0] = '\0';
         if (G->minibuf.saved_sym != SEXP_FALSE) {
             sexp_release_object(ctx, G->minibuf.saved_sym);
             G->minibuf.saved_sym = SEXP_FALSE;
@@ -677,13 +708,13 @@ sexp scm_minibuffer_activate_themes(sexp ctx, sexp self, sexp n) {
     G->minibuf.item_count     = 0;
     G->minibuf.selected       = 0;
     G->minibuf.item_scroll    = 0;
+    G->minibuf.previewed_sym[0] = '\0';
     sexp prompt = sexp_c_string(ctx, "Select a theme...", -1);
     sexp ret = scm_minibuffer_activate(ctx, self, n, prompt, SEXP_FALSE, SEXP_FALSE);
 
     // Populate items now so the initial selection is immediately previewed.
     themes_provider(G, "");
-    if (G->minibuf.item_count > 0)
-        theme_apply(ctx, sexp_intern(ctx, G->minibuf.items[0].sym_name, -1));
+    preview_selected(G);
 
     return ret;
 }
@@ -695,23 +726,46 @@ sexp scm_minibuffer_activate_themes(sexp ctx, sexp self, sexp n) {
 void minibuf_refresh_after_edit(AppState *state) {
     if (!state->minibuf.active || !state->minibuf.provider) return;
 
-    // Symbol selected before re-filtering; skip the preview if typing narrowed
-    // the list without landing on a different item.
-    char prev_sym[MINIBUF_LABEL_MAX] = "";
-    if (state->minibuf.item_count > 0 && state->minibuf.selected >= 0
-        && state->minibuf.selected < state->minibuf.item_count)
-        strncpy(prev_sym, state->minibuf.items[state->minibuf.selected].sym_name,
-                MINIBUF_LABEL_MAX - 1);
-
     char *raw = buffer_text(state->minibuf.buf);
     state->minibuf.provider(state, raw ? raw : "");
     free(raw);
 
-    if (!state->minibuf.preview_action || state->minibuf.item_count == 0) return;
-    const char *sym_name = state->minibuf.items[state->minibuf.selected].sym_name;
-    if (strcmp(sym_name, prev_sym) == 0) return;
-    state->minibuf.preview_action(state->chibi.ctx,
-                                  sexp_intern(state->chibi.ctx, sym_name, -1));
+    preview_selected(state);
+}
+
+// ---- Mouse hit-testing ------------------------------------------------------
+
+bool minibuf_point_in_palette(AppState *state, float x, float y) {
+    return state->minibuf.active
+        && x >= state->minibuf.palette_x
+        && x <  state->minibuf.palette_x + state->minibuf.palette_w
+        && y >= state->minibuf.palette_y
+        && y <  state->minibuf.palette_y + state->minibuf.palette_h;
+}
+
+int minibuf_item_at(AppState *state, float x, float y) {
+    if (!minibuf_point_in_palette(state, x, y)) return -1;
+    if (!state->minibuf.provider || state->minibuf.item_count == 0) return -1;
+    if (state->minibuf.palette_item_h <= 0.0f) return -1;
+    if (y < state->minibuf.palette_items_y) return -1;
+
+    int row = (int)((y - state->minibuf.palette_items_y) / state->minibuf.palette_item_h);
+    int visible = state->minibuf.item_count < MINIBUF_VISIBLE_ITEMS
+                ? state->minibuf.item_count : MINIBUF_VISIBLE_ITEMS;
+    if (row < 0 || row >= visible) return -1;
+    return state->minibuf.item_scroll + row;
+}
+
+// Preview whatever the mouse points at; anywhere that isn't an item row (the
+// input line, the padding, outside the palette) falls back to the keyboard
+// selection.
+void minibuf_hover_update(AppState *state, float x, float y) {
+    if (!state->minibuf.active || !state->minibuf.preview_action) return;
+    int idx = minibuf_item_at(state, x, y);
+    if (idx >= 0)
+        preview_sym(state, state->minibuf.items[idx].sym_name);
+    else
+        preview_selected(state);
 }
 
 sexp scm_minibuffer_select_next(sexp ctx, sexp self, sexp n) {
@@ -719,9 +773,7 @@ sexp scm_minibuffer_select_next(sexp ctx, sexp self, sexp n) {
     if (G->minibuf.selected < G->minibuf.item_count - 1) {
         G->minibuf.selected++;
         scroll_to_visible(G);
-        if (G->minibuf.preview_action)
-            G->minibuf.preview_action(ctx,
-                sexp_intern(ctx, G->minibuf.items[G->minibuf.selected].sym_name, -1));
+        preview_selected(G);
     }
     return SEXP_VOID;
 }
@@ -731,9 +783,7 @@ sexp scm_minibuffer_select_prev(sexp ctx, sexp self, sexp n) {
     if (G->minibuf.selected > 0) {
         G->minibuf.selected--;
         scroll_to_visible(G);
-        if (G->minibuf.preview_action)
-            G->minibuf.preview_action(ctx,
-                sexp_intern(ctx, G->minibuf.items[G->minibuf.selected].sym_name, -1));
+        preview_selected(G);
     }
     return SEXP_VOID;
 }

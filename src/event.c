@@ -172,6 +172,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         bool button_held = (event->motion.state & SDL_BUTTON_LMASK) != 0;
         Clay_SetPointerState((Clay_Vector2){x, y}, button_held);
 
+        // The palette owns the mouse while it is open, same as for clicks.
+        if (state->minibuf.active) {
+            minibuf_hover_update(state, x, y);
+            break;
+        }
+
         // Split divider drag.
         if (state->input.split_drag_pane && state->input.mouse_button_down) {
             pane_split_drag_update(state->input.split_drag_pane, x, y);
@@ -240,20 +246,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         // Handle minibuf click first, before setting any Clay or input state,
         // to prevent click-through to elements rendered under the backdrop.
         if (state->minibuf.active) {
-            bool inside = (x >= state->minibuf.palette_x &&
-                           x <  state->minibuf.palette_x + state->minibuf.palette_w &&
-                           y >= state->minibuf.palette_y &&
-                           y <  state->minibuf.palette_y + state->minibuf.palette_h);
-            if (!inside) {
+            if (!minibuf_point_in_palette(state, x, y)) {
                 scm_minibuffer_cancel(state->chibi.ctx, SEXP_FALSE, SEXP_FALSE);
-            } else if (state->minibuf.provider && state->minibuf.item_count > 0
-                       && state->minibuf.palette_item_h > 0.0f
-                       && y >= state->minibuf.palette_items_y) {
-                int i = (int)((y - state->minibuf.palette_items_y) / state->minibuf.palette_item_h);
-                int visible = state->minibuf.item_count < MINIBUF_VISIBLE_ITEMS
-                            ? state->minibuf.item_count : MINIBUF_VISIBLE_ITEMS;
-                if (i >= 0 && i < visible) {
-                    state->minibuf.selected = state->minibuf.item_scroll + i;
+            } else {
+                int i = minibuf_item_at(state, x, y);
+                if (i >= 0) {
+                    state->minibuf.selected = i;
                     scm_minibuffer_submit(state->chibi.ctx, SEXP_FALSE, SEXP_FALSE);
                 }
             }
@@ -384,17 +382,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         // Scroll the minibuffer completion list when wheel is over the palette.
         if (state->minibuf.active && state->minibuf.item_count > MINIBUF_VISIBLE_ITEMS) {
             float mx = event->wheel.mouse_x, my = event->wheel.mouse_y;
-            bool over_palette =
-                mx >= state->minibuf.palette_x &&
-                mx <  state->minibuf.palette_x + state->minibuf.palette_w &&
-                my >= state->minibuf.palette_y &&
-                my <  state->minibuf.palette_y + state->minibuf.palette_h;
-            if (over_palette) {
+            if (minibuf_point_in_palette(state, mx, my)) {
                 int delta = -(int)event->wheel.y;
                 int max_scroll = state->minibuf.item_count - MINIBUF_VISIBLE_ITEMS;
                 state->minibuf.item_scroll += delta;
                 if (state->minibuf.item_scroll < 0) state->minibuf.item_scroll = 0;
                 if (state->minibuf.item_scroll > max_scroll) state->minibuf.item_scroll = max_scroll;
+                // Scrolling slides a different item under a stationary cursor.
+                minibuf_hover_update(state, mx, my);
                 break;
             }
         }
